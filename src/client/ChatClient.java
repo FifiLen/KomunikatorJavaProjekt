@@ -7,12 +7,13 @@ import java.awt.*;
 import java.awt.event.*;
 
 public class ChatClient {
-    private static final String SERVER_ADDRESS = "192.168.0.12"; // Adres IP serwera
+    private static final String SERVER_ADDRESS = "34.116.243.95"; // Adres IP serwera
     private static final int SERVER_PORT = 12346; // Port serwera
     private BufferedReader in;
     private PrintWriter out;
     private JFrame frame = new JFrame("Chat Client");
     private JTextField textField = new JTextField(40);
+    private JButton sendButton = new JButton("Send");
     private JPanel messagePanel = new JPanel();
     private String userName;
 
