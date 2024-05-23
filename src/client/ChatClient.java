@@ -7,7 +7,7 @@ import java.awt.*;
 import java.awt.event.*;
 
 public class ChatClient {
-    private static final String SERVER_ADDRESS = "34.116.243.95"; // Adres IP serwera
+    private static final String SERVER_ADDRESS = "34.0.250.190"; // Adres IP serwera
     private static final int SERVER_PORT = 12346; // Port serwera
     private BufferedReader in;
     private PrintWriter out;
@@ -18,11 +18,8 @@ public class ChatClient {
     private String userName;
 
     public ChatClient() {
-        // Ustawienie nazwy użytkownika
-        userName = JOptionPane.showInputDialog(frame, "Enter your username:", "Username", JOptionPane.PLAIN_MESSAGE);
-        if (userName == null || userName.trim().isEmpty()) {
-            userName = "Anonymous";
-        }
+        // Show login/registration dialog
+        showLoginDialog();
 
         // Konfiguracja interfejsu graficznego
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -46,10 +43,6 @@ public class ChatClient {
         JPanel inputPanel = new JPanel();
         inputPanel.setLayout(new BorderLayout());
         textField.setFont(new Font("Arial", Font.PLAIN, 16));
-        JButton sendButton = new JButton("Send");
-        sendButton.setBackground(new Color(58, 89, 152));
-        sendButton.setForeground(Color.WHITE);
-        sendButton.setFont(new Font("Arial", Font.BOLD, 16));
         inputPanel.add(textField, BorderLayout.CENTER);
         inputPanel.add(sendButton, BorderLayout.EAST);
 
@@ -71,11 +64,70 @@ public class ChatClient {
         frame.setVisible(true);
     }
 
+    private void showLoginDialog() {
+        JFrame loginFrame = new JFrame("Login");
+        JPanel loginPanel = new JPanel(new GridLayout(3, 2));
+        JTextField usernameField = new JTextField(20);
+        JPasswordField passwordField = new JPasswordField(20);
+        JButton loginButton = new JButton("Login");
+        JButton registerButton = new JButton("Register");
+
+        loginPanel.add(new JLabel("Username:"));
+        loginPanel.add(usernameField);
+        loginPanel.add(new JLabel("Password:"));
+        loginPanel.add(passwordField);
+        loginPanel.add(new JLabel("Email (register only):"));
+        loginPanel.add(new JTextField(20));  // Dummy field for alignment
+        loginPanel.add(loginButton);
+        loginPanel.add(registerButton);
+
+        loginFrame.add(loginPanel);
+        loginFrame.pack();
+        loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        loginFrame.setVisible(true);
+
+        loginButton.addActionListener(e -> {
+            userName = usernameField.getText();
+            String password = new String(passwordField.getPassword());
+            if (authenticate("login", userName, password)) {
+                loginFrame.dispose();
+                frame.setVisible(true);
+            } else {
+                JOptionPane.showMessageDialog(loginFrame, "Login failed");
+            }
+        });
+
+        registerButton.addActionListener(e -> {
+            userName = usernameField.getText();
+            String password = new String(passwordField.getPassword());
+            if (authenticate("register", userName, password)) {
+                loginFrame.dispose();
+                frame.setVisible(true);
+            } else {
+                JOptionPane.showMessageDialog(loginFrame, "Registration failed");
+            }
+        });
+    }
+
+    private boolean authenticate(String type, String username, String password) {
+        try {
+            Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream(), true);
+
+            out.println(type);
+            out.println(username);
+            out.println(password);
+
+            String response = in.readLine();
+            return "login_success".equals(response) || "register_success".equals(response);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     private void run() throws IOException {
-        // Połączenie z serwerem
-        Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
-        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        out = new PrintWriter(socket.getOutputStream(), true);
         textField.setEditable(true);
 
         // Wysłanie nazwy użytkownika na początku połączenia
