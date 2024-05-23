@@ -2,6 +2,7 @@ package server;
 
 import java.io.*;
 import java.net.*;
+import java.sql.*;
 import java.util.*;
 
 public class ChatServer {
@@ -34,6 +35,21 @@ public class ChatServer {
             try {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
+
+                // Handle login/registration
+                String requestType = in.readLine();
+                if ("register".equalsIgnoreCase(requestType)) {
+                    String username = in.readLine();
+                    String password = in.readLine();
+                    boolean success = registerUser(username, password);
+                    out.println(success ? "register_success" : "register_fail");
+                } else if ("login".equalsIgnoreCase(requestType)) {
+                    String username = in.readLine();
+                    String password = in.readLine();
+                    boolean success = authenticateUser(username, password);
+                    out.println(success ? "login_success" : "login_fail");
+                }
+
                 synchronized (clientWriters) {
                     clientWriters.add(out);
                 }
@@ -58,6 +74,40 @@ public class ChatServer {
                 synchronized (clientWriters) {
                     clientWriters.remove(out);
                 }
+            }
+        }
+
+        private boolean registerUser(String username, String password) {
+            String url = "jdbc:mysql://localhost:3306/baza?useSSL=false&requireSSL=false";
+            String dbUser = "root";
+            String dbPassword = "/MVk9+\",BMpn>?m}";
+
+            try (Connection connection = DriverManager.getConnection(url, dbUser, dbPassword);
+                 PreparedStatement stmt = connection.prepareStatement("INSERT INTO users (username, password) VALUES (?, ?)")) {
+                stmt.setString(1, username);
+                stmt.setString(2, password);
+                stmt.executeUpdate();
+                return true;
+            } catch (SQLException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+
+        private boolean authenticateUser(String username, String password) {
+            String url = "jdbc:mysql://localhost:3306/baza?useSSL=false&requireSSL=false";
+            String dbUser = "root";
+            String dbPassword = "/MVk9+\",BMpn>?m}";
+
+            try (Connection connection = DriverManager.getConnection(url, dbUser, dbPassword);
+                 PreparedStatement stmt = connection.prepareStatement("SELECT * FROM users WHERE username = ? AND password = ?")) {
+                stmt.setString(1, username);
+                stmt.setString(2, password);
+                ResultSet rs = stmt.executeQuery();
+                return rs.next();
+            } catch (SQLException e) {
+                e.printStackTrace();
+                return false;
             }
         }
     }
