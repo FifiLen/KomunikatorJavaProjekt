@@ -7,26 +7,29 @@ import java.awt.*;
 import java.awt.event.*;
 
 public class ChatClient {
-    private static final String SERVER_ADDRESS = "34.0.250.190"; // Adres IP serwera
-    private static final int SERVER_PORT = 12346; // Port serwera
+    private static final String SERVER_ADDRESS = "34.0.250.190"; // Server IP address
+    private static final int SERVER_PORT = 12346; // Server port
     private BufferedReader in;
     private PrintWriter out;
     private JFrame frame = new JFrame("Chat Client");
     private JTextField textField = new JTextField(40);
     private JButton sendButton = new JButton("Send");
+    private JButton addFriendButton = new JButton("Add Friend");
+    private JButton removeFriendButton = new JButton("Remove Friend");
     private JPanel messagePanel = new JPanel();
     private String userName;
+    private JComboBox<String> friendsComboBox = new JComboBox<>();
 
     public ChatClient() {
         // Show login/registration dialog
         showLoginDialog();
 
-        // Konfiguracja interfejsu graficznego
+        // GUI setup
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(400, 600);
         frame.setLayout(new BorderLayout());
 
-        // Nagłówek
+        // Header
         JPanel headerPanel = new JPanel();
         headerPanel.setBackground(new Color(58, 89, 152)); // Facebook Messenger Blue
         headerPanel.setPreferredSize(new Dimension(400, 50));
@@ -35,11 +38,19 @@ public class ChatClient {
         headerLabel.setFont(new Font("Arial", Font.BOLD, 24));
         headerPanel.add(headerLabel);
 
-        // Pole wiadomości
+        // Friends list
+        JPanel friendsPanel = new JPanel();
+        friendsPanel.setLayout(new BorderLayout());
+        friendsPanel.add(new JLabel("Friends:"), BorderLayout.WEST);
+        friendsPanel.add(friendsComboBox, BorderLayout.CENTER);
+        friendsPanel.add(addFriendButton, BorderLayout.EAST);
+        friendsPanel.add(removeFriendButton, BorderLayout.SOUTH);
+
+        // Message panel
         messagePanel.setLayout(new BoxLayout(messagePanel, BoxLayout.Y_AXIS));
         JScrollPane messageScrollPane = new JScrollPane(messagePanel);
 
-        // Pole wprowadzania tekstu
+        // Input panel
         JPanel inputPanel = new JPanel();
         inputPanel.setLayout(new BorderLayout());
         textField.setFont(new Font("Arial", Font.PLAIN, 16));
@@ -47,19 +58,51 @@ public class ChatClient {
         inputPanel.add(sendButton, BorderLayout.EAST);
 
         frame.add(headerPanel, BorderLayout.NORTH);
+        frame.add(friendsPanel, BorderLayout.NORTH);
         frame.add(messageScrollPane, BorderLayout.CENTER);
         frame.add(inputPanel, BorderLayout.SOUTH);
 
-        // Obsługa wysyłania wiadomości
+        // Send message action
         ActionListener sendAction = new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                out.println(userName + ": " + textField.getText());
-                textField.setText("");
+                String friend = (String) friendsComboBox.getSelectedItem();
+                if (friend != null) {
+                    out.println("send_message");
+                    out.println(userName);
+                    out.println(friend);
+                    out.println(textField.getText());
+                    System.out.println("send_message "+userName+" "+friend + "textField.getText()");
+                    textField.setText("");
+                }
             }
         };
 
         textField.addActionListener(sendAction);
         sendButton.addActionListener(sendAction);
+
+        // Add friend action
+        addFriendButton.addActionListener(e -> {
+            String friendUsername = JOptionPane.showInputDialog("Enter friend's username:");
+            if (friendUsername != null && !friendUsername.isEmpty()) {
+                addFriend(userName, friendUsername);
+            }
+        });
+
+        // Remove friend action
+        removeFriendButton.addActionListener(e -> {
+            String friendUsername = (String) friendsComboBox.getSelectedItem();
+            if (friendUsername != null && !friendUsername.isEmpty()) {
+                removeFriend(userName, friendUsername);
+            }
+        });
+
+        // Load chat history when friend is selected
+        friendsComboBox.addActionListener(e -> {
+            String friend = (String) friendsComboBox.getSelectedItem();
+            if (friend != null) {
+                loadChatHistory(userName, friend);
+            }
+        });
 
         frame.setVisible(true);
     }
@@ -76,8 +119,6 @@ public class ChatClient {
         loginPanel.add(usernameField);
         loginPanel.add(new JLabel("Password:"));
         loginPanel.add(passwordField);
-        loginPanel.add(new JLabel("Email (register only):"));
-        loginPanel.add(new JTextField(20));  // Dummy field for alignment
         loginPanel.add(loginButton);
         loginPanel.add(registerButton);
 
@@ -92,6 +133,7 @@ public class ChatClient {
             if (authenticate("login", userName, password)) {
                 loginFrame.dispose();
                 frame.setVisible(true);
+                initializeChat();
             } else {
                 JOptionPane.showMessageDialog(loginFrame, "Login failed");
             }
@@ -103,6 +145,7 @@ public class ChatClient {
             if (authenticate("register", userName, password)) {
                 loginFrame.dispose();
                 frame.setVisible(true);
+                initializeChat();
             } else {
                 JOptionPane.showMessageDialog(loginFrame, "Registration failed");
             }
@@ -118,36 +161,143 @@ public class ChatClient {
             out.println(type);
             out.println(username);
             out.println(password);
-
             String response = in.readLine();
-            return "login_success".equals(response) || "register_success".equals(response);
+            if ("login_success".equals(response) || "register_success".equals(response)) {
+                if ("login_success".equals(response)) {
+                    loadFriendsList();
+                }
+                return true;
+            }
+            return false;
         } catch (IOException e) {
             e.printStackTrace();
             return false;
         }
     }
 
-    private void run() throws IOException {
-        textField.setEditable(true);
+    private void addFriend(String username, String friendUsername) {
+        try {
+            Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 
-        // Wysłanie nazwy użytkownika na początku połączenia
-        out.println(userName);
+            out.println("add_friend");
+            out.println(username);
+            out.println(friendUsername);
 
-        // Odbieranie wiadomości od serwera
-        while (true) {
-            String message = in.readLine();
-            if (message == null) {
-                break;
+            String response = in.readLine();
+            if ("add_friend_success".equals(response)) {
+                JOptionPane.showMessageDialog(frame, "Friend added successfully");
+                friendsComboBox.addItem(friendUsername);
+            } else {
+                JOptionPane.showMessageDialog(frame, "Failed to add friend");
             }
-            addMessageToPanel(message);
+
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void removeFriend(String username, String friendUsername) {
+        try {
+            Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+
+            out.println("remove_friend");
+            out.println(username);
+            out.println(friendUsername);
+
+            String response = in.readLine();
+            if ("remove_friend_success".equals(response)) {
+                JOptionPane.showMessageDialog(frame, "Friend removed successfully");
+                friendsComboBox.removeItem(friendUsername);
+            } else {
+                JOptionPane.showMessageDialog(frame, "Failed to remove friend");
+            }
+
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadFriendsList() {
+        try {
+            out.println("get_friends");
+            out.println(userName);
+
+            String response;
+            while (!(response = in.readLine()).equals("friend_list_end")) {
+                if (!response.equals("friend_list_start")) {
+                    friendsComboBox.addItem(response);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void loadChatHistory(String user1, String user2) {
+        try {
+            Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
+            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+
+            out.println("get_chat_history");
+            out.println(user1);
+            out.println(user2);
+
+            messagePanel.removeAll();
+
+            String response;
+            while (!(response = in.readLine()).equals("chat_history_end")) {
+                if (!response.equals("chat_history_start")) {
+                    addMessageToPanel(response);
+                }
+            }
+
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void initializeChat() {
+        try {
+            Socket socket = new Socket(SERVER_ADDRESS, SERVER_PORT);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream(), true);
+            new Thread(() -> {
+                try {
+                    run();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }).start();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void run() throws IOException {
+        while (true) {
+            if (in != null) {
+                String message = in.readLine();
+                if (message == null) {
+                    break;
+                }
+                addMessageToPanel(message);
+            }
         }
     }
 
     private void addMessageToPanel(String message) {
-        // Utworzenie dymka czatu
+        // Create chat bubble
         String[] parts = message.split(": ", 2);
         if (parts.length < 2) {
-            return; // Niepoprawny format wiadomości, pomiń
+            return; // Invalid message format, skip
         }
         String sender = parts[0];
         String text = parts[1];
