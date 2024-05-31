@@ -11,7 +11,7 @@ public class ChatServer {
     private static String DB_USER = "root";
     private static String DB_PASSWORD = "/MVk9+\",BMpn>?m}";
     private static final int PORT = 12346;
-    private static Map<String, PrintWriter> clientWriters = new HashMap<>();
+    private static Map<String, PrintWriter> clientWriters = Collections.synchronizedMap(new HashMap<>());
 
     public static void main(String[] args) throws Exception {
         System.out.println("Chat server started...");
@@ -91,6 +91,9 @@ public class ChatServer {
                             PrintWriter receiverWriter = clientWriters.get(receiver);
                             if (receiverWriter != null) {
                                 receiverWriter.println(sender + ": " + message);
+                                System.out.println("Message sent to receiver: " + receiver);
+                            } else {
+                                System.out.println("Receiver not connected: " + receiver);
                             }
                             System.out.println(sender + " sent message to " + receiver + ": " + message);
                         }
@@ -111,6 +114,7 @@ public class ChatServer {
                 if (username != null) {
                     synchronized (clientWriters) {
                         clientWriters.remove(username);
+                        System.out.println("User disconnected: " + username);
                     }
                 }
                 try {

@@ -75,6 +75,9 @@ public class ChatClient {
                     messageOut.println(userName);
                     messageOut.println(friend);
                     messageOut.println(message);
+                    messageOut.flush();
+
+                    System.out.println("Message sent to server: " + message);
 
                     // Add the message to the panel with the correct format
                     addMessageToPanel(userName + ": " + message);
@@ -170,6 +173,7 @@ public class ChatClient {
             out.println(username);
             out.println(password);
             String response = in.readLine();
+            System.out.println("Server response to " + type + ": " + response);
             if ("login_success".equals(response) || "register_success".equals(response)) {
                 if ("login_success".equals(response)) {
                     loadFriendsList(in, out);
@@ -193,6 +197,7 @@ public class ChatClient {
             out.println(friendUsername);
 
             String response = in.readLine();
+            System.out.println("Server response to add_friend: " + response);
             if ("add_friend_success".equals(response)) {
                 JOptionPane.showMessageDialog(frame, "Friend added successfully");
                 friendsComboBox.addItem(friendUsername);
@@ -214,6 +219,7 @@ public class ChatClient {
             out.println(friendUsername);
 
             String response = in.readLine();
+            System.out.println("Server response to remove_friend: " + response);
             if ("remove_friend_success".equals(response)) {
                 JOptionPane.showMessageDialog(frame, "Friend removed successfully");
                 friendsComboBox.removeItem(friendUsername);
@@ -253,8 +259,10 @@ public class ChatClient {
             messagePanel.removeAll();
 
             String response;
+            System.out.println("Chat history between " + user1 + " and " + user2 + ":");
             while (!(response = in.readLine()).equals("chat_history_end")) {
                 if (!response.equals("chat_history_start")) {
+                    System.out.println(response);
                     addMessageToPanel(response);
                 }
             }
@@ -282,6 +290,7 @@ public class ChatClient {
         try {
             String message;
             while ((message = messageIn.readLine()) != null) {
+                System.out.println("Received message from server: " + message);
                 addMessageToPanel(message);
             }
         } catch (IOException e) {
