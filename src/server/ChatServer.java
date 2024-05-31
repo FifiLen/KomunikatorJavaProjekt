@@ -41,89 +41,87 @@ public class ChatServer {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
 
-                String requestType = in.readLine();
-                System.out.println("Received: " + requestType);
-                if ("register".equalsIgnoreCase(requestType)) {
-                    username = in.readLine();
-                    String password = in.readLine();
-                    boolean success = registerUser(username, password);
-                    out.println(success ? "register_success" : "register_fail");
-                    System.out.println("User registered: " + username);
-                } else if ("login".equalsIgnoreCase(requestType)) {
-                    username = in.readLine();
-                    String password = in.readLine();
-                    boolean success = authenticateUser(username, password);
-                    if (success) {
-                        out.println("login_success");
-                        sendFriendList(username);
-                        System.out.println("User logged in: " + username);
-                    } else {
-                        out.println("login_fail");
-                        System.out.println("Login failed for user: " + username);
+                while (true) {
+                    String requestType = in.readLine();
+                    if (requestType == null) {
+                        break;
                     }
-                } else if ("add_friend".equalsIgnoreCase(requestType)) {
-                    username = in.readLine();
-                    String friendUsername = in.readLine();
-                    boolean success = addFriend(username, friendUsername);
-                    out.println(success ? "add_friend_success" : "add_friend_fail");
-                    System.out.println(username + " added friend: " + friendUsername);
-                } else if ("remove_friend".equalsIgnoreCase(requestType)) {
-                    username = in.readLine();
-                    String friendUsername = in.readLine();
-                    boolean success = removeFriend(username, friendUsername);
-                    out.println(success ? "remove_friend_success" : "remove_friend_fail");
-                    System.out.println(username + " removed friend: " + friendUsername);
-                } else if ("send_message".equalsIgnoreCase(requestType)) {
-                    String sender = in.readLine();
-                    String receiver = in.readLine();
-                    String message = in.readLine();
-                    boolean success = storeMessage(sender, receiver, message);
-                    out.println(success ? "send_message_success" : "send_message_fail");
-
-                    if (success) {
-                        PrintWriter receiverWriter = clientWriters.get(receiver);
-                        if (receiverWriter != null) {
-                            receiverWriter.println(sender + ": " + message);
-                        }
-                        out.println(sender + ": " + message);
-                        System.out.println(sender + " sent message to " + receiver + ": " + message);
-                    }
-                } else if ("get_chat_history".equalsIgnoreCase(requestType)) {
-                    String user1 = in.readLine();
-                    String user2 = in.readLine();
-                    sendChatHistory(user1, user2);
-                    System.out.println("Chat history requested between " + user1 + " and " + user2);
-                } else if ("get_friends".equalsIgnoreCase(requestType)) {
-                    username = in.readLine();
-                    sendFriendList(username);
-                    System.out.println("Friend list requested for user: " + username);
-                }
-
-                if (username != null) {
-                    synchronized (clientWriters) {
-                        clientWriters.put(username, out);
-                    }
-                }
-                while ((requestType = in.readLine()) != null) {
                     System.out.println("Received: " + requestType);
+                    if ("register".equalsIgnoreCase(requestType)) {
+                        username = in.readLine();
+                        String password = in.readLine();
+                        boolean success = registerUser(username, password);
+                        out.println(success ? "register_success" : "register_fail");
+                        System.out.println("User registered: " + username);
+                    } else if ("login".equalsIgnoreCase(requestType)) {
+                        username = in.readLine();
+                        String password = in.readLine();
+                        boolean success = authenticateUser(username, password);
+                        if (success) {
+                            out.println("login_success");
+                            sendFriendList(username);
+                            System.out.println("User logged in: " + username);
+                            synchronized (clientWriters) {
+                                clientWriters.put(username, out);
+                            }
+                        } else {
+                            out.println("login_fail");
+                            System.out.println("Login failed for user: " + username);
+                        }
+                    } else if ("add_friend".equalsIgnoreCase(requestType)) {
+                        username = in.readLine();
+                        String friendUsername = in.readLine();
+                        boolean success = addFriend(username, friendUsername);
+                        out.println(success ? "add_friend_success" : "add_friend_fail");
+                        System.out.println(username + " added friend: " + friendUsername);
+                    } else if ("remove_friend".equalsIgnoreCase(requestType)) {
+                        username = in.readLine();
+                        String friendUsername = in.readLine();
+                        boolean success = removeFriend(username, friendUsername);
+                        out.println(success ? "remove_friend_success" : "remove_friend_fail");
+                        System.out.println(username + " removed friend: " + friendUsername);
+                    } else if ("send_message".equalsIgnoreCase(requestType)) {
+                        String sender = in.readLine();
+                        String receiver = in.readLine();
+                        String message = in.readLine();
+                        boolean success = storeMessage(sender, receiver, message);
+                        out.println(success ? "send_message_success" : "send_message_fail");
+
+                        if (success) {
+                            PrintWriter receiverWriter = clientWriters.get(receiver);
+                            if (receiverWriter != null) {
+                                receiverWriter.println(sender + ": " + message);
+                            }
+                            System.out.println(sender + " sent message to " + receiver + ": " + message);
+                        }
+                    } else if ("get_chat_history".equalsIgnoreCase(requestType)) {
+                        String user1 = in.readLine();
+                        String user2 = in.readLine();
+                        sendChatHistory(user1, user2);
+                        System.out.println("Chat history requested between " + user1 + " and " + user2);
+                    } else if ("get_friends".equalsIgnoreCase(requestType)) {
+                        username = in.readLine();
+                        sendFriendList(username);
+                        System.out.println("Friend list requested for user: " + username);
+                    }
                 }
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
+                if (username != null) {
+                    synchronized (clientWriters) {
+                        clientWriters.remove(username);
+                    }
+                }
                 try {
                     socket.close();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
-                synchronized (clientWriters) {
-                    clientWriters.values().remove(out);
-                }
             }
         }
 
         private boolean registerUser(String username, String password) {
-
-
             try (Connection connection = DriverManager.getConnection(URL, DB_USER, DB_PASSWORD);
                  PreparedStatement stmt = connection.prepareStatement("INSERT INTO users (username, password) VALUES (?, ?)")) {
                 stmt.setString(1, username);
@@ -137,8 +135,6 @@ public class ChatServer {
         }
 
         private boolean authenticateUser(String username, String password) {
-
-
             try (Connection connection = DriverManager.getConnection(URL, DB_USER, DB_PASSWORD);
                  PreparedStatement stmt = connection.prepareStatement("SELECT * FROM users WHERE username = ? AND password = ?")) {
                 stmt.setString(1, username);
@@ -152,8 +148,6 @@ public class ChatServer {
         }
 
         private boolean addFriend(String username, String friendUsername) {
-
-
             try (Connection connection = DriverManager.getConnection(URL, DB_USER, DB_PASSWORD)) {
                 int userId = getUserId(username, connection);
                 int friendId = getUserId(friendUsername, connection);
@@ -174,8 +168,6 @@ public class ChatServer {
         }
 
         private boolean removeFriend(String username, String friendUsername) {
-
-
             try (Connection connection = DriverManager.getConnection(URL, DB_USER, DB_PASSWORD)) {
                 int userId = getUserId(username, connection);
                 int friendId = getUserId(friendUsername, connection);
@@ -196,8 +188,6 @@ public class ChatServer {
         }
 
         private boolean storeMessage(String sender, String receiver, String message) {
-
-
             try (Connection connection = DriverManager.getConnection(URL, DB_USER, DB_PASSWORD)) {
                 int senderId = getUserId(sender, connection);
                 int receiverId = getUserId(receiver, connection);
@@ -229,8 +219,6 @@ public class ChatServer {
         }
 
         private void sendFriendList(String username) throws IOException {
-
-
             try (Connection connection = DriverManager.getConnection(URL, DB_USER, DB_PASSWORD)){
                 int userId = getUserId(username, connection);
 
@@ -246,18 +234,20 @@ public class ChatServer {
                 ResultSet rs = stmt.executeQuery();
 
                 out.println("friend_list_start");
+                System.out.println("Sending friend list for user: " + username);
                 while (rs.next()) {
-                    out.println(rs.getString("username"));
+                    String friendUsername = rs.getString("username");
+                    out.println(friendUsername);
+                    System.out.println("Friend: " + friendUsername);
                 }
                 out.println("friend_list_end");
-            }catch (SQLException e) {
+                System.out.println("Friend list end for user: " + username);
+            } catch (SQLException e) {
                 e.printStackTrace();
             }
         }
 
         private void sendChatHistory(String user1, String user2) throws IOException {
-
-
             try (Connection connection = DriverManager.getConnection(URL, DB_USER, DB_PASSWORD)) {
                 int user1Id = getUserId(user1, connection);
                 int user2Id = getUserId(user2, connection);
