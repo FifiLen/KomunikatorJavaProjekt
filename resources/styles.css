@@ -1,0 +1,103 @@
+/* styles.css */
+
+/* Global styles */
+.root {
+    -fx-font-family: "Arial";
+    -fx-font-weight: 600; /* semibold */
+    -fx-letter-spacing: -0.5px;
+}
+
+.label {
+    -fx-font-weight: 600; /* semibold */
+    -fx-letter-spacing: -0.5px;
+}
+
+.button {
+    -fx-font-weight: 600; /* semibold */
+    -fx-letter-spacing: -0.5px;
+}
+
+.text-field {
+    -fx-font-weight: 600; /* semibold */
+    -fx-letter-spacing: -0.5px;
+}
+
+.password-field {
+    -fx-font-weight: 600; /* semibold */
+    -fx-letter-spacing: -0.5px;
+}
+
+.list-cell {
+    -fx-font-weight: 600; /* semibold */
+    -fx-letter-spacing: -0.5px;
+}
+
+.text-area {
+    -fx-font-weight: 600; /* semibold */
+    -fx-letter-spacing: -0.5px;
+}
+
+/* Usunięcie zaokrągleń */
+#friendsPanel {
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+    -fx-background-color: #1c1c1c;
+}
+
+#chatContainer {
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
+}
+
+/* Scrollbar customization */
+.scroll-pane .scroll-bar:vertical {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar:horizontal {
+    -fx-background-color: transparent;
+}
+
+.scroll-pane .scroll-bar .thumb {
+    -fx-background-color: #4C4C4C;
+    -fx-background-insets: 0;
+    -fx-background-radius: 5px;
+}
+
+.scroll-pane .scroll-bar .track {
+    -fx-background-color: transparent;
+}
+
+/* Friend list customization */
+.friend-cell {
+    -fx-padding: 10;
+    -fx-background-color: #2c2c2c;
+    -fx-background-radius: 0;  /* Remove rounding */
+    -fx-border-color: #3a3a3a;
+    -fx-border-width: 1;
+    -fx-border-radius: 0;  /* Remove rounding */
+    -fx-background-insets: 0;
+}
+
+.friend-avatar {
+    -fx-fit-height: 40px;
+    -fx-fit-width: 40px;
+    -fx-background-radius: 20px;
+}
+
+.friend-username {
+    -fx-text-fill: white;
+    -fx-font-size: 16px;
+    -fx-font-weight: 700;
+}
+
+.friend-last-message {
+    -fx-text-fill: #b0b0b0;
+    -fx-font-size: 12px;
+}
+
+.list-view {
+    -fx-background-color: #1c1c1c; /* Ensure the list view has a dark background */
+    -fx-control-inner-background: #1c1c1c; /* Ensure the list view has a dark background */
+    -fx-border-color: transparent; /* Remove border around list view */
+}

@@ -2,165 +2,276 @@ package client;
 
 import java.io.*;
 import java.net.*;
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
+import java.util.*;
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
+import javafx.stage.Stage;
 
-public class ChatClient {
-    private static final String SERVER_ADDRESS = "34.0.250.190"; // Server IP address
-    private static final int SERVER_PORT = 12346; // Server port
+public class ChatClient extends Application {
+    private static final String SERVER_ADDRESS = "34.0.250.190";
+    private static final int SERVER_PORT = 12346;
     private BufferedReader in;
     private PrintWriter out;
     private BufferedReader messageIn;
     private PrintWriter messageOut;
-    private JFrame frame = new JFrame("Chat Client");
-    private JTextField textField = new JTextField(40);
-    private JButton sendButton = new JButton("Send");
-    private JButton addFriendButton = new JButton("Add Friend");
-    private JButton removeFriendButton = new JButton("Remove Friend");
-    private JPanel messagePanel = new JPanel();
+    private Stage primaryStage;
+    private TextField textField = new TextField();
+    private Button sendButton = new Button("Send");
+    private Button addFriendButton = new Button("Add Friend");
+    private Button removeFriendButton = new Button("Remove Friend");
+    private VBox messageBox = new VBox();
     private String userName;
-    private JComboBox<String> friendsComboBox = new JComboBox<>();
+    private ListView<Friend> friendsListView = new ListView<>();
     private Socket messageSocket;
+    private Label chatWithLabel = new Label();
+    private ScrollPane scrollPane = new ScrollPane();
 
-    public ChatClient() {
-        // Show login/registration dialog
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+    @Override
+    public void start(Stage primaryStage) {
+        this.primaryStage = primaryStage;
         showLoginDialog();
+    }
 
-        // GUI setup
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(400, 600);
-        frame.setLayout(new BorderLayout());
+    private void showLoginDialog() {
+        Stage loginStage = new Stage();
+        VBox loginPanel = new VBox(10);
+        loginPanel.setPadding(new Insets(20));
+        loginPanel.setAlignment(Pos.CENTER);
+        loginPanel.setStyle("-fx-background-color: #2c2c2c; -fx-border-color: #3a3a3a; -fx-border-radius: 10; -fx-background-radius: 10;");
 
-        // Header
-        JPanel headerPanel = new JPanel();
-        headerPanel.setBackground(new Color(58, 89, 152)); // Facebook Messenger Blue
-        headerPanel.setPreferredSize(new Dimension(400, 50));
-        JLabel headerLabel = new JLabel("Komunikator Szymonka");
-        headerLabel.setForeground(Color.WHITE);
-        headerLabel.setFont(new Font("Arial", Font.BOLD, 24));
-        headerPanel.add(headerLabel);
+        ImageView logo = new ImageView(new Image(getClass().getResourceAsStream("/logoApp.png")));
+        logo.setFitWidth(80);
+        logo.setPreserveRatio(true);
 
-        // Friends list
-        JPanel friendsPanel = new JPanel();
-        friendsPanel.setLayout(new BorderLayout());
-        friendsPanel.add(new JLabel("Friends:"), BorderLayout.WEST);
-        friendsPanel.add(friendsComboBox, BorderLayout.CENTER);
-        friendsPanel.add(addFriendButton, BorderLayout.EAST);
-        friendsPanel.add(removeFriendButton, BorderLayout.SOUTH);
+        Label usernameLabel = new Label("Username:");
+        usernameLabel.setTextFill(Color.WHITE);
 
-        // Message panel
-        messagePanel.setLayout(new BoxLayout(messagePanel, BoxLayout.Y_AXIS));
-        JScrollPane messageScrollPane = new JScrollPane(messagePanel);
+        TextField usernameField = new TextField();
+        usernameField.setPromptText("Enter your username");
+        usernameField.setStyle("-fx-padding: 10; -fx-background-radius: 10; -fx-background-color: #3a3a3a; -fx-text-fill: white;");
 
-        // Input panel
-        JPanel inputPanel = new JPanel();
-        inputPanel.setLayout(new BorderLayout());
-        textField.setFont(new Font("Arial", Font.PLAIN, 16));
-        inputPanel.add(textField, BorderLayout.CENTER);
-        inputPanel.add(sendButton, BorderLayout.EAST);
+        Label passwordLabel = new Label("Password:");
+        passwordLabel.setTextFill(Color.WHITE);
 
-        frame.add(headerPanel, BorderLayout.NORTH);
-        frame.add(friendsPanel, BorderLayout.NORTH);
-        frame.add(messageScrollPane, BorderLayout.CENTER);
-        frame.add(inputPanel, BorderLayout.SOUTH);
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText("Enter your password");
+        passwordField.setStyle("-fx-padding: 10; -fx-background-radius: 10; -fx-background-color: #3a3a3a; -fx-text-fill: white;");
 
-        // Send message action
-        ActionListener sendAction = new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                String friend = (String) friendsComboBox.getSelectedItem();
-                if (friend != null && textField.getText() != null && !textField.getText().trim().isEmpty()) {
-                    String message = textField.getText();
-                    messageOut.println("send_message");
-                    messageOut.println(userName);
-                    messageOut.println(friend);
-                    messageOut.println(message);
-                    messageOut.flush();
+        ImageView loginIcon = new ImageView(new Image(getClass().getResourceAsStream("/loginIcon.png")));
+        loginIcon.setFitWidth(16);
+        loginIcon.setFitHeight(16);
 
-                    System.out.println("Message sent to server: " + message);
+        ImageView registerIcon = new ImageView(new Image(getClass().getResourceAsStream("/registerIcon.png")));
+        registerIcon.setFitWidth(16);
+        registerIcon.setFitHeight(16);
 
-                    // Add the message to the panel with the correct format
-                    addMessageToPanel(userName + ": " + message);
+        Button loginButton = new Button("Login", loginIcon);
+        loginButton.setTextFill(Color.BLACK);
+        loginButton.setStyle("-fx-background-color: #87CEFA; -fx-background-radius: 10; -fx-padding: 10;");
 
-                    textField.setText("");
-                }
+        Button registerButton = new Button("Register", registerIcon);
+        registerButton.setTextFill(Color.BLACK);
+        registerButton.setStyle("-fx-background-color: #FF7F7F; -fx-background-radius: 10; -fx-padding: 10;");
+
+        HBox buttonBox = new HBox(10, loginButton, registerButton);
+        buttonBox.setAlignment(Pos.CENTER);
+
+        loginPanel.getChildren().addAll(logo, usernameLabel, usernameField, passwordLabel, passwordField, buttonBox);
+
+        loginButton.setOnAction(e -> {
+            userName = usernameField.getText();
+            String password = passwordField.getText();
+            if (authenticate("login", userName, password)) {
+                loginStage.close();
+                showChatWindow();
+                initializeMessageSocket();
+            } else {
+                showAlert("Login failed");
             }
-        };
+        });
 
-        textField.addActionListener(sendAction);
-        sendButton.addActionListener(sendAction);
+        registerButton.setOnAction(e -> {
+            userName = usernameField.getText();
+            String password = passwordField.getText();
+            if (authenticate("register", userName, password)) {
+                loginStage.close();
+                showChatWindow();
+                initializeMessageSocket();
+            } else {
+                showAlert("Registration failed");
+            }
+        });
 
-        // Add friend action
-        addFriendButton.addActionListener(e -> {
-            String friendUsername = JOptionPane.showInputDialog("Enter friend's username:");
+        Scene scene = new Scene(loginPanel, 300, 400);
+        scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+        loginStage.setScene(scene);
+        loginStage.setTitle("Login");
+        loginStage.show();
+    }
+
+    private void showChatWindow() {
+        BorderPane root = new BorderPane();
+        primaryStage.setTitle("Chat Client");
+
+        VBox topContainer = new VBox();
+
+        Label headerLabel = new Label("Komunikator Szymonka");
+        headerLabel.setStyle("-fx-background-color: #1c1c1c; -fx-text-fill: white; -fx-padding: 10px;");
+        topContainer.getChildren().add(headerLabel);
+
+        ImageView addFriendIcon = new ImageView(new Image(getClass().getResourceAsStream("/addFriendIcon.png")));
+        addFriendIcon.setFitWidth(16);
+        addFriendIcon.setFitHeight(16);
+
+        ImageView removeFriendIcon = new ImageView(new Image(getClass().getResourceAsStream("/removeFriendIcon.png")));
+        removeFriendIcon.setFitWidth(16);
+        removeFriendIcon.setFitHeight(16);
+
+        Label friendsLabel = new Label("Friends:");
+        friendsLabel.setTextFill(Color.WHITE);
+
+        addFriendButton = new Button("Add Friend", addFriendIcon);
+        addFriendButton.setTextFill(Color.BLACK);
+        addFriendButton.setStyle("-fx-background-color: #87CEFA; -fx-background-radius: 10; -fx-padding: 10;");
+
+        removeFriendButton = new Button("Remove Friend", removeFriendIcon);
+        removeFriendButton.setTextFill(Color.BLACK);
+        removeFriendButton.setStyle("-fx-background-color: #FF7F7F; -fx-background-radius: 10; -fx-padding: 10;");
+
+        VBox buttonsBox = new VBox(10, addFriendButton, removeFriendButton);
+        buttonsBox.setAlignment(Pos.CENTER_LEFT);
+
+        friendsListView.setStyle("-fx-background-color: #1c1c1c; -fx-control-inner-background: #1c1c1c; -fx-text-fill: white; -fx-background-radius: 0;");
+        friendsListView.setCellFactory(lv -> new FriendCell());
+
+        VBox friendsPanel = new VBox(10);
+        friendsPanel.setPadding(new Insets(10));
+        friendsPanel.setAlignment(Pos.TOP_LEFT);
+        friendsPanel.setStyle("-fx-background-color: #1c1c1c; -fx-background-radius: 0;");
+        friendsPanel.setId("friendsPanel");
+        friendsPanel.getChildren().addAll(friendsLabel, friendsListView, buttonsBox);
+
+        BorderPane leftContainer = new BorderPane();
+        leftContainer.setTop(friendsPanel);
+        leftContainer.setPrefWidth(250);
+
+        root.setLeft(leftContainer);
+
+        chatWithLabel.setTextFill(Color.WHITE);
+        chatWithLabel.setStyle("-fx-background-color: #1c1c1c; -fx-padding: 10px;");
+        BorderPane topChatContainer = new BorderPane();
+        topChatContainer.setTop(chatWithLabel);
+
+        scrollPane.setContent(messageBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: #1c1c1c; -fx-border-color: #3a3a3a; -fx-background-radius: 0;");
+        VBox chatContainer = new VBox(topChatContainer, scrollPane);
+        chatContainer.setStyle("-fx-background-color: #1c1c1c;");
+        chatContainer.setId("chatContainer");
+        root.setCenter(chatContainer);
+
+        ImageView sendIcon = new ImageView(new Image(getClass().getResourceAsStream("/sendIcon.png")));
+        sendIcon.setFitWidth(16);
+        sendIcon.setFitHeight(16);
+
+        sendButton = new Button("Send", sendIcon);
+        sendButton.setTextFill(Color.BLACK);
+        sendButton.setStyle("-fx-background-color: #bfffbd; -fx-background-radius: 10; -fx-padding: 10;");
+
+        HBox inputPanel = new HBox(10);
+        inputPanel.setPadding(new Insets(10));
+        textField.setPrefWidth(400);
+        textField.setStyle("-fx-padding: 10; -fx-background-radius: 10; -fx-background-color: #3a3a3a; -fx-text-fill: white;");
+        inputPanel.getChildren().addAll(textField, sendButton);
+        inputPanel.setAlignment(Pos.CENTER_RIGHT);
+
+        BorderPane bottomContainer = new BorderPane();
+        bottomContainer.setRight(inputPanel);
+        bottomContainer.setStyle("-fx-background-color: #2c2c2c;");
+        root.setBottom(bottomContainer);
+
+        sendButton.setOnAction(e -> sendMessage());
+        textField.setOnAction(e -> sendMessage());
+
+        addFriendButton.setOnAction(e -> {
+            String friendUsername = showInputDialog("Enter friend's username:");
             if (friendUsername != null && !friendUsername.isEmpty()) {
                 addFriend(userName, friendUsername);
             }
         });
 
-        // Remove friend action
-        removeFriendButton.addActionListener(e -> {
-            String friendUsername = (String) friendsComboBox.getSelectedItem();
-            if (friendUsername != null && !friendUsername.isEmpty()) {
-                removeFriend(userName, friendUsername);
-            }
-        });
-
-        // Load chat history when friend is selected
-        friendsComboBox.addActionListener(e -> {
-            String friend = (String) friendsComboBox.getSelectedItem();
+        removeFriendButton.setOnAction(e -> {
+            Friend friend = friendsListView.getSelectionModel().getSelectedItem();
             if (friend != null) {
-                loadChatHistory(userName, friend);
+                removeFriend(userName, friend.getUserName());
             }
         });
 
-        frame.setVisible(true);
+        friendsListView.setOnMouseClicked(e -> {
+            Friend friend = friendsListView.getSelectionModel().getSelectedItem();
+            if (friend != null) {
+                loadChatHistory(userName, friend.getUserName());
+                chatWithLabel.setText("Chat with " + friend.getUserName());
+            }
+        });
+
+        Scene scene = new Scene(root, 800, 600);
+        scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+        primaryStage.setScene(scene);
+        primaryStage.show();
     }
 
-    private void showLoginDialog() {
-        JFrame loginFrame = new JFrame("Login");
-        JPanel loginPanel = new JPanel(new GridLayout(3, 2));
-        JTextField usernameField = new JTextField(20);
-        JPasswordField passwordField = new JPasswordField(20);
-        JButton loginButton = new JButton("Login");
-        JButton registerButton = new JButton("Register");
+    private void sendMessage() {
+        Friend friend = friendsListView.getSelectionModel().getSelectedItem();
+        if (friend != null && textField.getText() != null && !textField.getText().trim().isEmpty()) {
+            String message = textField.getText();
+            messageOut.println("send_message");
+            messageOut.println(userName);
+            messageOut.println(friend.getUserName());
+            messageOut.println(message);
+            messageOut.flush();
 
-        loginPanel.add(new JLabel("Username:"));
-        loginPanel.add(usernameField);
-        loginPanel.add(new JLabel("Password:"));
-        loginPanel.add(passwordField);
-        loginPanel.add(loginButton);
-        loginPanel.add(registerButton);
+            addMessageToPanel(userName + ": " + message, true);
+            updateLastMessage(friend, message);
 
-        loginFrame.add(loginPanel);
-        loginFrame.pack();
-        loginFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        loginFrame.setVisible(true);
+            textField.setText("");
+            scrollToBottomWithDelay();
+        }
+    }
 
-        loginButton.addActionListener(e -> {
-            userName = usernameField.getText();
-            String password = new String(passwordField.getPassword());
-            if (authenticate("login", userName, password)) {
-                loginFrame.dispose();
-                frame.setVisible(true);
-                initializeMessageSocket();
-                initializeChat();
-            } else {
-                JOptionPane.showMessageDialog(loginFrame, "Login failed");
+    private void updateLastMessage(Friend friend, String message) {
+        if (message.length() > 10) {
+            message = message.substring(0, 10) + "...";
+        }
+        friend.setLastMessage(message);
+        friendsListView.refresh();
+    }
+
+    private void scrollToBottom() {
+        Platform.runLater(() -> scrollPane.setVvalue(1.0));
+    }
+
+    private void scrollToBottomWithDelay() {
+        Platform.runLater(() -> {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
-        });
-
-        registerButton.addActionListener(e -> {
-            userName = usernameField.getText();
-            String password = new String(passwordField.getPassword());
-            if (authenticate("register", userName, password)) {
-                loginFrame.dispose();
-                frame.setVisible(true);
-                initializeMessageSocket();
-                initializeChat();
-            } else {
-                JOptionPane.showMessageDialog(loginFrame, "Registration failed");
-            }
+            scrollToBottom();
         });
     }
 
@@ -173,7 +284,6 @@ public class ChatClient {
             out.println(username);
             out.println(password);
             String response = in.readLine();
-            System.out.println("Server response to " + type + ": " + response);
             if ("login_success".equals(response) || "register_success".equals(response)) {
                 if ("login_success".equals(response)) {
                     loadFriendsList(in, out);
@@ -197,12 +307,11 @@ public class ChatClient {
             out.println(friendUsername);
 
             String response = in.readLine();
-            System.out.println("Server response to add_friend: " + response);
             if ("add_friend_success".equals(response)) {
-                JOptionPane.showMessageDialog(frame, "Friend added successfully");
-                friendsComboBox.addItem(friendUsername);
+                showAlert("Friend added successfully");
+                friendsListView.getItems().add(new Friend(friendUsername, "Last message..."));
             } else {
-                JOptionPane.showMessageDialog(frame, "Failed to add friend");
+                showAlert("Failed to add friend");
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -219,12 +328,11 @@ public class ChatClient {
             out.println(friendUsername);
 
             String response = in.readLine();
-            System.out.println("Server response to remove_friend: " + response);
             if ("remove_friend_success".equals(response)) {
-                JOptionPane.showMessageDialog(frame, "Friend removed successfully");
-                friendsComboBox.removeItem(friendUsername);
+                showAlert("Friend removed successfully");
+                friendsListView.getItems().removeIf(friend -> friend.getUserName().equals(friendUsername));
             } else {
-                JOptionPane.showMessageDialog(frame, "Failed to remove friend");
+                showAlert("Failed to remove friend");
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -239,7 +347,7 @@ public class ChatClient {
             String response;
             while (!(response = in.readLine()).equals("friend_list_end")) {
                 if (!response.equals("friend_list_start")) {
-                    friendsComboBox.addItem(response);
+                    friendsListView.getItems().add(new Friend(response, "Last message..."));
                 }
             }
         } catch (IOException e) {
@@ -256,16 +364,16 @@ public class ChatClient {
             out.println(user1);
             out.println(user2);
 
-            messagePanel.removeAll();
+            messageBox.getChildren().clear();
 
             String response;
-            System.out.println("Chat history between " + user1 + " and " + user2 + ":");
             while (!(response = in.readLine()).equals("chat_history_end")) {
                 if (!response.equals("chat_history_start")) {
-                    System.out.println(response);
-                    addMessageToPanel(response);
+                    addMessageToPanel(response, response.startsWith(user1));
                 }
             }
+
+            scrollToBottomWithDelay();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -276,70 +384,126 @@ public class ChatClient {
             messageSocket = new Socket(SERVER_ADDRESS, SERVER_PORT);
             messageIn = new BufferedReader(new InputStreamReader(messageSocket.getInputStream()));
             messageOut = new PrintWriter(messageSocket.getOutputStream(), true);
-            new Thread(this::run).start(); // Ensure the client listens for incoming messages continuously
+            new Thread(this::run).start();
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private void initializeChat() {
-        // Moved message listener thread to initializeMessageSocket()
     }
 
     private void run() {
         try {
             String message;
             while ((message = messageIn.readLine()) != null) {
-                System.out.println("Received message from server: " + message);
-                addMessageToPanel(message);
+                addMessageToPanel(message, message.startsWith(userName));
             }
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void addMessageToPanel(String message) {
-        SwingUtilities.invokeLater(() -> {
-            // Create chat bubble
+    private void addMessageToPanel(String message, boolean isSentByUser) {
+        Platform.runLater(() -> {
             String[] parts = message.split(": ", 2);
             if (parts.length < 2) {
-                return; // Invalid message format, skip
+                return;
             }
             String sender = parts[0];
             String text = parts[1];
 
-            JLabel messageLabel = new JLabel("<html><b>" + sender + ":</b> " + text + "</html>");
-            messageLabel.setFont(new Font("Arial", Font.PLAIN, 16));
-            JPanel messageBubble = new JPanel();
-            messageBubble.setLayout(new BorderLayout());
-            messageBubble.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+            Label messageLabel = new Label(sender + ": " + text);
+            messageLabel.setPadding(new Insets(10));
+            messageLabel.setWrapText(true);
+            messageLabel.setMaxWidth(400);
+            messageLabel.setTextFill(Color.BLACK);
 
-            if (sender.equals(userName)) {
-                messageBubble.setBackground(new Color(220, 248, 198)); // Lighter color for the current user's messages
+            HBox messageBubble = new HBox();
+            messageBubble.setPadding(new Insets(5));
+            messageBubble.getChildren().add(messageLabel);
+
+            if (isSentByUser) {
+                messageLabel.setStyle("-fx-background-color: #004593; -fx-background-radius: 10; -fx-padding: 10;");
+                messageBubble.setAlignment(Pos.CENTER_RIGHT);
             } else {
-                messageBubble.setBackground(new Color(240, 240, 240)); // Different color for other users' messages
+                messageLabel.setStyle("-fx-background-color: #4C4C4C; -fx-background-radius: 10; -fx-padding: 10;");
+                messageBubble.setAlignment(Pos.CENTER_LEFT);
             }
 
-            messageBubble.add(messageLabel, BorderLayout.CENTER);
-
-            JPanel outerPanel = new JPanel(new BorderLayout());
-            outerPanel.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-            if (sender.equals(userName)) {
-                outerPanel.add(messageBubble, BorderLayout.LINE_END);
-            } else {
-                outerPanel.add(messageBubble, BorderLayout.LINE_START);
-            }
-
-            messagePanel.add(outerPanel);
-            messagePanel.revalidate();
-            messagePanel.repaint();
+            messageBox.getChildren().add(messageBubble);
+            scrollToBottomWithDelay();
         });
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            ChatClient client = new ChatClient();
-            client.frame.setVisible(true);
+    private void showAlert(String message) {
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setContentText(message);
+            alert.showAndWait();
         });
+    }
+
+    private String showInputDialog(String message) {
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Input");
+        dialog.setHeaderText(null);
+        dialog.setContentText(message);
+        return dialog.showAndWait().orElse(null);
+    }
+
+    public class Friend {
+        private final String userName;
+        private String lastMessage;
+        private final ImageView avatar;
+
+        public Friend(String userName, String lastMessage) {
+            this.userName = userName;
+            this.lastMessage = lastMessage;
+            this.avatar = new ImageView(new Image(getClass().getResourceAsStream("/avatar.png")));
+            this.avatar.setFitWidth(40);
+            this.avatar.setFitHeight(40);
+            this.avatar.setStyle("-fx-background-radius: 20px;");
+        }
+
+        public String getUserName() {
+            return userName;
+        }
+
+        public String getLastMessage() {
+            return lastMessage;
+        }
+
+        public void setLastMessage(String lastMessage) {
+            this.lastMessage = lastMessage;
+        }
+
+        public ImageView getAvatar() {
+            return avatar;
+        }
+    }
+
+    public class FriendCell extends ListCell<Friend> {
+        @Override
+        protected void updateItem(Friend friend, boolean empty) {
+            super.updateItem(friend, empty);
+            if (empty || friend == null) {
+                setGraphic(null);
+                setText(null);
+            } else {
+                HBox hBox = new HBox(10);
+                hBox.setPadding(new Insets(5));
+                hBox.setAlignment(Pos.CENTER_LEFT);
+
+                VBox vBox = new VBox(5);
+                Label username = new Label(friend.getUserName());
+                username.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: 700;");
+                Label lastMessage = new Label(friend.getLastMessage());
+                lastMessage.setStyle("-fx-text-fill: #b0b0b0; -fx-font-size: 12px;");
+
+                vBox.getChildren().addAll(username, lastMessage);
+                hBox.getChildren().addAll(friend.getAvatar(), vBox);
+                hBox.setStyle("-fx-background-color: #2c2c2c; -fx-border-color: #3a3a3a; -fx-border-width: 1; -fx-background-radius: 0; -fx-border-radius: 0;");
+
+                setGraphic(hBox);
+            }
+        }
     }
 }
