@@ -1,8 +1,5 @@
 package client;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -11,10 +8,19 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.layout.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
-import javafx.scene.text.Text;
 import javafx.stage.Stage;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class ChatClient extends Application {
     private static final String SERVER_ADDRESS = "34.0.250.190";
@@ -34,6 +40,7 @@ public class ChatClient extends Application {
     private Socket messageSocket;
     private Label chatWithLabel = new Label();
     private ScrollPane scrollPane = new ScrollPane();
+    private Timer timer;
 
     public static void main(String[] args) {
         launch(args);
@@ -98,6 +105,7 @@ public class ChatClient extends Application {
                 loginStage.close();
                 showChatWindow();
                 initializeMessageSocket();
+                startMessageRefreshTimer();
             } else {
                 showAlert("Login failed");
             }
@@ -110,6 +118,7 @@ public class ChatClient extends Application {
                 loginStage.close();
                 showChatWindow();
                 initializeMessageSocket();
+                startMessageRefreshTimer();
             } else {
                 showAlert("Registration failed");
             }
@@ -248,7 +257,13 @@ public class ChatClient extends Application {
             updateLastMessage(friend, message);
 
             textField.setText("");
-            scrollToBottomWithDelay();
+            scrollToBottom();
+
+            // Update the friend's last message in the list view
+            Platform.runLater(() -> {
+                friend.setLastMessage(message);
+                friendsListView.refresh();
+            });
         }
     }
 
@@ -261,17 +276,8 @@ public class ChatClient extends Application {
     }
 
     private void scrollToBottom() {
-        Platform.runLater(() -> scrollPane.setVvalue(1.0));
-    }
-
-    private void scrollToBottomWithDelay() {
         Platform.runLater(() -> {
-            try {
-                Thread.sleep(50);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            scrollToBottom();
+            scrollPane.setVvalue(1.0);
         });
     }
 
@@ -373,7 +379,7 @@ public class ChatClient extends Application {
                 }
             }
 
-            scrollToBottomWithDelay();
+            scrollToBottom();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -384,52 +390,96 @@ public class ChatClient extends Application {
             messageSocket = new Socket(SERVER_ADDRESS, SERVER_PORT);
             messageIn = new BufferedReader(new InputStreamReader(messageSocket.getInputStream()));
             messageOut = new PrintWriter(messageSocket.getOutputStream(), true);
-            new Thread(this::run).start();
+
+            new Thread(() -> {
+                try {
+                    String message;
+                    while ((message = messageIn.readLine()) != null) {
+                        final String msg = message;
+                        System.out.println("Received message: " + msg);
+                        Platform.runLater(() -> processReceivedMessage(msg));
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }).start();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    private void run() {
-        try {
-            String message;
-            while ((message = messageIn.readLine()) != null) {
-                addMessageToPanel(message, message.startsWith(userName));
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
+    private void processReceivedMessage(String message) {
+        System.out.println("Processing received message: " + message);
+        String[] parts = message.split(": ", 2);
+        if (parts.length < 2) {
+            return;
         }
+        String sender = parts[0];
+        String text = parts[1];
+
+        Platform.runLater(() -> {
+            Friend activeFriend = friendsListView.getSelectionModel().getSelectedItem();
+            if (activeFriend != null && activeFriend.getUserName().equals(sender)) {
+                // Add message to the messageBox if the chat is active
+                addMessageToPanel(sender + ": " + text, sender.equals(userName));
+                scrollToBottom();
+            } else {
+                // Update last message in the friends list
+                for (Friend friend : friendsListView.getItems()) {
+                    if (friend.getUserName().equals(sender)) {
+                        updateLastMessage(friend, text);
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    private void startMessageRefreshTimer() {
+        timer = new Timer(true);
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                Platform.runLater(() -> {
+                    Friend activeFriend = friendsListView.getSelectionModel().getSelectedItem();
+                    if (activeFriend != null) {
+                        loadChatHistory(userName, activeFriend.getUserName());
+                    }
+                });
+            }
+        }, 0, 2000);
     }
 
     private void addMessageToPanel(String message, boolean isSentByUser) {
+        System.out.println("Adding message to panel: " + message);
+        String[] parts = message.split(": ", 2);
+        if (parts.length < 2) {
+            return;
+        }
+        String sender = parts[0];
+        String text = parts[1];
+
+        Label messageLabel = new Label(sender + ": " + text);
+        messageLabel.setPadding(new Insets(10));
+        messageLabel.setWrapText(true);
+        messageLabel.setMaxWidth(400);
+        messageLabel.setTextFill(Color.BLACK);
+
+        HBox messageBubble = new HBox();
+        messageBubble.setPadding(new Insets(5));
+        messageBubble.getChildren().add(messageLabel);
+
+        if (isSentByUser) {
+            messageLabel.setStyle("-fx-background-color: #004593; -fx-background-radius: 10; -fx-padding: 10;");
+            messageBubble.setAlignment(Pos.CENTER_RIGHT);
+        } else {
+            messageLabel.setStyle("-fx-background-color: #4C4C4C; -fx-background-radius: 10; -fx-padding: 10;");
+            messageBubble.setAlignment(Pos.CENTER_LEFT);
+        }
+
         Platform.runLater(() -> {
-            String[] parts = message.split(": ", 2);
-            if (parts.length < 2) {
-                return;
-            }
-            String sender = parts[0];
-            String text = parts[1];
-
-            Label messageLabel = new Label(sender + ": " + text);
-            messageLabel.setPadding(new Insets(10));
-            messageLabel.setWrapText(true);
-            messageLabel.setMaxWidth(400);
-            messageLabel.setTextFill(Color.BLACK);
-
-            HBox messageBubble = new HBox();
-            messageBubble.setPadding(new Insets(5));
-            messageBubble.getChildren().add(messageLabel);
-
-            if (isSentByUser) {
-                messageLabel.setStyle("-fx-background-color: #004593; -fx-background-radius: 10; -fx-padding: 10;");
-                messageBubble.setAlignment(Pos.CENTER_RIGHT);
-            } else {
-                messageLabel.setStyle("-fx-background-color: #4C4C4C; -fx-background-radius: 10; -fx-padding: 10;");
-                messageBubble.setAlignment(Pos.CENTER_LEFT);
-            }
-
             messageBox.getChildren().add(messageBubble);
-            scrollToBottomWithDelay();
+            scrollToBottom();
         });
     }
 
